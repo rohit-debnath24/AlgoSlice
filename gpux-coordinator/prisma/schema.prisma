@@ -1,0 +1,32 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model GPU {
+  id               String   @id @default(uuid())
+  owner_wallet     String   @unique
+  gpu_model        String
+  price_per_minute Float
+  status           String   @default("available") // available, busy, offline
+  last_heartbeat   DateTime @default(now())
+
+  jobs             Job[]
+}
+
+model Job {
+  id               String   @id @default(uuid())
+  renter_wallet    String
+  owner_wallet     String
+  gpu_id           String
+  start_time       DateTime @default(now())
+  max_end_time     DateTime
+  escrow_tx_hash   String   @unique
+  status           String   @default("running") // running, completed, failed, refunded
+
+  gpu              GPU      @relation(fields: [gpu_id], references: [id])
+}

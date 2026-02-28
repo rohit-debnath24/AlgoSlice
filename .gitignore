@@ -12,6 +12,9 @@ Agents/__pycache__/
 
 agent_cache/
 backend/node_modules/
+gpux-node/node_modules/
+gpux-coordinator/node_modules/
+gpux-client/node_modules/
 # production
 /build
  
