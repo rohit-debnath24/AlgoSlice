@@ -33,7 +33,7 @@ export default function JobDashboard() {
     const [metrics, setMetrics] = useState<MetricPoint[]>([])
     const [status, setStatus] = useState<string>("Initializing...")
     const socketRef = useRef<Socket | null>(null)
-    const logEndRef = useRef<HTMLDivElement>(null)
+    const logsContainerRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         // Connect to Coordinator
@@ -65,7 +65,9 @@ export default function JobDashboard() {
     }, [id])
 
     useEffect(() => {
-        logEndRef.current?.scrollIntoView({ behavior: "smooth" })
+        if (logsContainerRef.current) {
+            logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight
+        }
     }, [logs])
 
     return (
@@ -149,7 +151,7 @@ export default function JobDashboard() {
                                     <div className="w-3 h-3 rounded-full bg-zinc-800" />
                                 </div>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-6 font-mono text-sm space-y-1">
+                            <div ref={logsContainerRef} className="flex-1 overflow-y-auto p-6 font-mono text-sm space-y-1">
                                 {logs.length === 0 ? (
                                     <p className="text-zinc-700 italic">Initializing secure stream connection...</p>
                                 ) : (
@@ -162,7 +164,6 @@ export default function JobDashboard() {
                                         </div>
                                     ))
                                 )}
-                                <div ref={logEndRef} />
                             </div>
                         </div>
                     </div>

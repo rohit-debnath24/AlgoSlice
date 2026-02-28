@@ -27,8 +27,7 @@ app.use(express.json());
 app.get('/list', async (req, res) => {
     const gpus = await prisma.gPU.findMany({
         where: {
-            // status: 'available', // Show all for demo
-            last_heartbeat: { gte: new Date(Date.now() - 30000) } // 30s tolerance
+            last_heartbeat: { gte: new Date(Date.now() - 120000) } // 2 min tolerance
         }
     });
     res.json(gpus);

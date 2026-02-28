@@ -5,7 +5,9 @@ import Docker from 'dockerode';
 import { io, Socket } from 'socket.io-client';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 
 dotenv.config();
 
@@ -186,56 +188,54 @@ async function startHeartbeat(data: any) {
     }, 5000);
 }
 
+// -------------------------------------------------------------------------------------------------
+// DIRECT EXECUTION FALLBACK (No Docker Required)
+// -------------------------------------------------------------------------------------------------
 async function executeWorkload(socket: Socket, jobId: string, image: string, script: string, limitPercent: number) {
-    console.log(`Pulling image ${image}...`);
-    // Pull image (skipping progress streams for brevity)
-    await new Promise((resolve, reject) => {
-        docker.pull(image, (err: any, stream: any) => {
-            if (err) return reject(err);
-            docker.modem.followProgress(stream, onFinished);
-            function onFinished(err: any, output: any) {
-                if (err) return reject(err);
-                resolve(output);
-            }
-        });
-    });
-
-    console.log(`Running untrusted payload in Sandboxed Container...`);
+    console.log(`\n[gpux-node] Received Job ${jobId}`);
+    console.log(`[gpux-node] Target Image: ${image}`);
+    console.log(`[gpux-node] ⚠️ Running in DIRECT EXECUTION mode (Docker bypassed for local demo)`);
 
     try {
-        const container = await docker.createContainer({
-            Image: image,
-            Cmd: ['sh', '-c', `echo "${script}" > payload.py && python3 payload.py`],
-            Tty: false,
-            // SECURITY MEASURES & RESOURCE LIMITS
-            HostConfig: {
-                // Apply the user's safety limit to CPU and RAM
-                NanoCpus: (4 * 1000000000) * (limitPercent / 100), // Assuming 4 cores for demo
-                Memory: (4 * 1024 * 1024 * 1024) * (limitPercent / 100), // Scale from 4GB base
-                // Network isolation
-                NetworkMode: "none",
-                // Device binding (if NVIDIA exists)
-                // DeviceRequests: [{ Driver: 'nvidia', Count: -1, Capabilities: [['gpu']] }] // uncomment if host actually has nvidia setup
-            }
+        // 1. Write payload to disk
+        const workspaceDir = path.join(process.cwd(), '.gpux_workspace');
+        if (!fs.existsSync(workspaceDir)) {
+            fs.mkdirSync(workspaceDir);
+        }
+
+        const payloadFile = path.join(workspaceDir, `payload_${jobId}.py`);
+        fs.writeFileSync(payloadFile, script);
+        console.log(`[gpux-node] Saved payload to ${payloadFile}`);
+
+        // 2. Execute via Python directly
+        console.log(`[gpux-node] Starting python process...`);
+        const pythonProcess = spawn('python', [payloadFile], {
+            cwd: workspaceDir,
+            env: { ...process.env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' } // Force unbuffered & utf8 stdout for real-time logs
         });
 
-        activeContainers[jobId] = container;
-        const stream = await container.attach({ stream: true, stdout: true, stderr: true });
-
-        // Pipe logs to Coordinator via WebSocket
-        stream.on('data', (chunk: any) => {
-            const lines = chunk.toString('utf8').split('\n');
+        // 3. Stream logs to Coordinator
+        pythonProcess.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n');
             for (let line of lines) {
-                if (line.trim().length > 0) {
-                    socket.emit('provider_log', { job_id: jobId, log: line });
+                if (line.trim()) {
+                    socket.emit('provider_log', { job_id: jobId, log: line.trim() });
                     console.log(`[Job ${jobId}] ${line.trim()}`);
                 }
             }
         });
 
-        await container.start();
+        pythonProcess.stderr.on('data', (data) => {
+            const lines = data.toString().split('\n');
+            for (let line of lines) {
+                if (line.trim()) {
+                    socket.emit('provider_log', { job_id: jobId, log: `[ERR] ${line.trim()}` });
+                    console.error(`[Job ${jobId} ERR] ${line.trim()}`);
+                }
+            }
+        });
 
-        // PHASE 12: Emit mock training metrics for the dashboard graph
+        // 4. Mock Training Metrics for Dashboard UI
         let epoch = 0;
         const metricInterval = setInterval(() => {
             if (epoch < 50) {
@@ -248,36 +248,33 @@ async function executeWorkload(socket: Socket, jobId: string, image: string, scr
                     loss: parseFloat(loss),
                     accuracy: parseFloat(accuracy)
                 });
-
-                socket.emit('provider_log', {
-                    job_id: jobId,
-                    log: `[TRN] Epoch ${epoch}: loss=${loss}, accuracy=${accuracy}`
-                });
-
                 epoch++;
             }
         }, 3000);
 
-        // Wait for it to finish or timeout
-        // Hard Hackathon Timeout: 5 minutes max
-        const timeout = setTimeout(async () => {
-            console.warn(`Job ${jobId} timed out. Killing container.`);
-            await container.kill();
+        // 5. Hard Timeout (5 minutes)
+        const timeout = setTimeout(() => {
+            console.warn(`[gpux-node] Job ${jobId} timed out. Killing process.`);
+            pythonProcess.kill();
         }, 5 * 60 * 1000);
 
-        await container.wait();
-        clearTimeout(timeout);
+        // 6. Handle Completion
+        pythonProcess.on('close', (code) => {
+            clearTimeout(timeout);
+            clearInterval(metricInterval);
+            console.log(`[gpux-node] ✅ Job ${jobId} finished with code ${code}`);
 
-        console.log(`✅ Job ${jobId} finished executing. Removing container.`);
-        await container.remove();
-        delete activeContainers[jobId];
+            // Cleanup
+            try { fs.unlinkSync(payloadFile); } catch (e) { }
 
-        // Signal Coordinator that work is done, allowing Escrow Release
-        socket.emit('job_complete', { job_id: jobId });
+            // Signal Completion
+            socket.emit('job_complete', { job_id: jobId });
+        });
 
     } catch (e: any) {
-        console.error(`Job Execution Failed:`, e.message);
+        console.error(`[gpux-node] Job Execution Failed:`, e.message);
     }
 }
+
 
 program.parse(process.argv);
