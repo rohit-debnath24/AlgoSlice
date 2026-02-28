@@ -44,15 +44,9 @@ export function Navigation() {
         {/* Logo Section */}
         <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#69E300]/10 border border-[#69E300]/30 transition-all group-hover:bg-[#69E300]/20 group-hover:shadow-[0_0_15px_rgba(105,227,0,0.3)] overflow-hidden">
-            <Image
-              src="/logo.png"
-              alt="Ghostwriter Logo"
-              width={32}
-              height={32}
-              className="object-cover w-full h-full"
-            />
+            <div className="text-[#69E300] font-bold text-xs">GPUX</div>
           </div>
-          <span className="text-lg font-display font-bold tracking-tight text-white">Ghostwriter</span>
+          <span className="text-xl font-display font-bold tracking-tight text-white uppercase">gpux</span>
         </Link>
 
         {/* Center Links Section */}
@@ -64,41 +58,29 @@ export function Navigation() {
             Home
           </Link>
           <Link
-            href={isAuthenticated && userId ? `/dashboard/${userId}` : '/login'}
-            onClick={(e) => handleProtectedLink(e, `/dashboard/${userId}`)}
+            href="/marketplace"
             className="text-sm font-medium text-white/60 hover:text-[#69E300] transition-colors"
           >
-            Dashboard
+            Marketplace
+          </Link>
+          <Link
+            href="/list-gpu"
+            className="text-sm font-medium text-white/60 hover:text-[#69E300] transition-colors"
+          >
+            List GPU
           </Link>
           <a
-            href="/#features"
+            href="/#how-it-works"
             className="text-sm font-medium text-white/60 hover:text-[#69E300] transition-colors"
             onClick={(e) => {
               e.preventDefault()
-              const element = document.getElementById('features')
+              const element = document.getElementById('how-it-works')
               if (element) {
                 element.scrollIntoView({ behavior: 'smooth' })
-              } else {
-                window.location.href = '/#features'
               }
             }}
           >
-            Product
-          </a>
-          <a
-            href="/#agents"
-            className="text-sm font-medium text-white/60 hover:text-[#69E300] transition-colors"
-            onClick={(e) => {
-              e.preventDefault()
-              const element = document.getElementById('agents')
-              if (element) {
-                element.scrollIntoView({ behavior: 'smooth' })
-              } else {
-                window.location.href = '/#agents'
-              }
-            }}
-          >
-            Agents
+            How It Works
           </a>
           <Link
             href={isAuthenticated && userId ? `/trace/${userId}` : '/login'}
@@ -141,8 +123,8 @@ export function Navigation() {
               )}
             </>
           )}
-          <Button size="sm" className="bg-[#69E300] text-black hover:bg-[#5bc200] font-semibold">
-            GhostWriter Agent
+          <Button size="sm" className="bg-[#69E300] text-black hover:bg-[#5bc200] font-semibold" asChild>
+            <Link href="/marketplace">Rent a GPU</Link>
           </Button>
           <Button variant="ghost" size="icon" className="md:hidden">
             <Menu className="h-5 w-5 text-white" />

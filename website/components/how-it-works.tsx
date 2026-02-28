@@ -1,27 +1,27 @@
-import { Terminal, Shield, Zap, Code2, CheckCircle2, Workflow } from "lucide-react"
+import { Search, Shield, Zap, CheckCircle2, Workflow } from "lucide-react"
 
 const steps = [
   {
-    icon: <Code2 className="h-6 w-6" />,
-    title: "Connect Repositories",
-    description: "Link your GitHub or GitLab repositories. Ghostwriter maps your entire codebase and dependency tree.",
+    icon: <Search className="h-6 w-6" />,
+    title: "Select a GPU",
+    description: "Browse the marketplace and find a node that matches your hardware and pricing requirements.",
   },
   {
     icon: <Shield className="h-6 w-6" />,
-    title: "Isolated Sandbox",
+    title: "On-Chain Escrow",
     description:
-      "Agents spin up ephemeral, isolated environments for every task, ensuring zero risk to your production code.",
+      "Lock your ALGOs in our secure smart contract via the CLI. Your funds are held safely until the job is done.",
   },
   {
     icon: <Zap className="h-6 w-6" />,
-    title: "Ghostwriter Analysis",
+    title: "Secure Execution",
     description:
-      "Agents analyze PRs, find vulnerabilities, or execute refactors with deep architectural understanding.",
+      "Your workload runs in an isolated Docker container on the provider's machine, protected by strict resource caps.",
   },
   {
     icon: <CheckCircle2 className="h-6 w-6" />,
-    title: "Verified Output",
-    description: "Get verified code suggestions with full audit logs and performance metrics before merging.",
+    title: "Instant Payout",
+    description: "Once verified, the escrow releases funds to the provider. Both parties are protected at every step.",
   },
 ]
 
@@ -35,7 +35,7 @@ export function HowItWorks() {
         </div>
         <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">How <span className="text-[#69E300]">it Works</span></h2>
         <p className="text-white/40 text-lg">
-          A streamlined workflow that connects your repositories to autonomous agents, ensuring secure and verified code operations.
+          A streamlined, decentralized workflow that connects developers to global GPU power with 100% security.
         </p>
       </div>
 

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 import { LiveTerminal } from "./live-terminal"
 import { Shield, Zap, Search } from "lucide-react"
 
@@ -13,30 +14,27 @@ export function HeroSection() {
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
           <div className="space-y-8 max-w-2xl">
             <div className="space-y-4">
-              <Badge variant="outline" className="border-[#69E300]/20 bg-[#69E300]/5 text-[#69E300] py-1 px-3">
-                <Zap className="mr-2 h-3.5 w-3.5" />
-                Powered by Google ADK & W&B Weave
-              </Badge>
               <h1 className="text-5xl font-display font-bold tracking-tight text-white md:text-6xl lg:text-7xl">
-                Algo 
-                <span className="text-[#69E300]">Slice</span>
+                GPU
+                <span className="text-[#69E300]"> Power</span>
               </h1>
               <p className="text-lg text-white/60 leading-relaxed max-w-xl">
-                Eliminate the manual review bottleneck. Our agentic platform autonomously audits code, generates
-                documentation, and secures your repos with 100% observability.
+                The decentralized marketplace for compute. Rent high-performance GPUs with
+                Algorand-secured escrow and automated Docker sandboxing.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-4">
-              <Button size="lg" className="bg-[#69E300] text-black hover:bg-[#5bc200] font-bold h-12 px-8">
-                Connect Repository
+              <Button size="lg" className="bg-[#69E300] text-black hover:bg-[#5bc200] font-bold h-12 px-8" asChild>
+                <Link href="/marketplace">Explore Marketplace</Link>
               </Button>
               <Button
                 size="lg"
                 variant="outline"
                 className="border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold h-12 px-8"
+                asChild
               >
-                View Agent Docs
+                <Link href="https://testnet.algoexplorer.io/application/756316410" target="_blank">View Smart Contract</Link>
               </Button>
             </div>
           </div>

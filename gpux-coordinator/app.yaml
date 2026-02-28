@@ -1,0 +1,20 @@
+name: gpux-coordinator
+services:
+  - name: gpux-coordinator
+    dockerfile_path: gpux-coordinator/Dockerfile
+    source_dir: gpux-coordinator
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: DATABASE_URL
+        value: "file:./dev.db" # In production, swap this for a managed DB connection string
+        scope: RUN_AND_BUILD_TIME
+      - key: PORT
+        value: "3000"
+        scope: RUN_TIME
+      - key: ALGORAND_APP_ID
+        value: "0" # Update this after deployment
+        scope: RUN_TIME
+    routes:
+      - path: /

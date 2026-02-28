@@ -9,12 +9,12 @@ export function Footer() {
           <div className="space-y-6">
             <Link href="/" className="flex items-center gap-2 group">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#69E300]/10 border border-[#69E300]/30">
-                <img src="/logo.png" alt="Ghostwriter Logo" className="h-6 w-6 object-contain" />
+                <div className="text-[#69E300] font-bold text-xs font-display">GPUX</div>
               </div>
-              <span className="text-xl font-bold tracking-tight text-white uppercase tracking-widest">Ghostwriter</span>
+              <span className="text-xl font-bold tracking-tight text-white uppercase tracking-widest">gpux</span>
             </Link>
             <p className="text-sm text-white/40 leading-relaxed max-w-xs">
-              Autonomous AI agents for secure, scalable, and high-performance DevOps automation.
+              Decentralized GPU rental marketplace secured by Algorand smart contracts. High-performance compute for everyone.
             </p>
             <div className="flex gap-4">
               <Link
@@ -42,23 +42,23 @@ export function Footer() {
             <h4 className="text-sm font-bold uppercase tracking-widest text-white mb-6">Product</h4>
             <ul className="space-y-4">
               <li>
-                <Link href="#" className="text-sm text-white/40 hover:text-[#69E300] transition-colors">
-                  Agents
+                <Link href="/marketplace" className="text-sm text-white/40 hover:text-[#69E300] transition-colors">
+                  Marketplace
+                </Link>
+              </li>
+              <li>
+                <Link href="https://testnet.algoexplorer.io/application/756316410" className="text-sm text-white/40 hover:text-[#69E300] transition-colors" target="_blank">
+                  Smart Contract
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-sm text-white/40 hover:text-[#69E300] transition-colors">
-                  Repositories
+                  Provider Node
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-sm text-white/40 hover:text-[#69E300] transition-colors">
-                  Live Audit
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-sm text-white/40 hover:text-[#69E300] transition-colors">
-                  Infrastructure
+                  Documentation
                 </Link>
               </li>
             </ul>

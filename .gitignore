@@ -5,16 +5,21 @@
 /Agents/venv
 /agent-engine/venv
 /agent-engine/__pycache__/
+
 Agents/__pycache__/
 # next.js
 /.next/
 /out/
-
+*node_modules
 agent_cache/
 backend/node_modules/
 gpux-node/node_modules/
 gpux-coordinator/node_modules/
 gpux-client/node_modules/
+gpux-escrow/node_modules/
+website/node_modules/
+website/.next/
+  
 # production
 /build
  
