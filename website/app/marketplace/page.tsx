@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import {
     Cpu, Zap, Shield, Clock, ArrowRight, CheckCircle2,
     MessageSquare, Brain, Image as ImageIcon, Binary, Sparkles, Terminal, Info,
-    Database, Link2, HardDrive
+    Database, Link2, HardDrive, Lock, Fingerprint, Wallet
 } from "lucide-react"
 
 interface GPU {
@@ -97,6 +97,9 @@ export default function MarketplacePage() {
     const [gpus, setGpus] = useState<GPU[]>([])
     const [loading, setLoading] = useState(true)
     const [rentingId, setRentingId] = useState<string | null>(null)
+    const [isSigning, setIsSigning] = useState(false)
+    const [signProgress, setSignProgress] = useState(0)
+    const [signingModel, setSigningModel] = useState('')
 
     const DATA_SOURCE_OPTIONS = [
         { id: 'huggingface' as const, label: 'HuggingFace Dataset', icon: Database, placeholder: 'HuggingFaceH4/ultrachat_200k', hint: 'Auto-downloaded inside the container via datasets library.' },
@@ -174,15 +177,26 @@ export default function MarketplacePage() {
         return `import time\n${dsEnv}\nprint('🚀 MISSION START...')\nfor i in range(100):\n    print(f'Progress {i}%...')\n    time.sleep(1)`
     }
 
-    const handleRent = async (gpuId: string) => {
-        setRentingId(gpuId);
+    const handleRent = async (gpu: GPU) => {
+        setRentingId(gpu.id);
+        setIsSigning(true);
+        setSigningModel(gpu.gpu_model);
+        setSignProgress(0);
+
+        // Simulate User Signature Delay (Pera Wallet interaction)
+        for (let i = 0; i <= 100; i += 5) {
+            await new Promise(r => setTimeout(r, 100));
+            setSignProgress(i);
+        }
+        await new Promise(r => setTimeout(r, 600)); // Pause at 100%
+
         try {
             const res = await fetch("http://localhost:3001/rent", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     renter_wallet: "HACKATHON_DEMO_RENTER",
-                    gpu_id: gpuId,
+                    gpu_id: gpu.id,
                     minutes: 60,
                     escrow_tx_hash: "mock_tx_" + Math.random().toString(36).substring(7),
                     image: selectedWorkload?.image || "pytorch/pytorch:latest",
@@ -196,6 +210,7 @@ export default function MarketplacePage() {
             }
         } catch (error) {
             console.error("Rental failed:", error);
+            setIsSigning(false);
         } finally {
             setRentingId(null);
         }
@@ -402,7 +417,7 @@ export default function MarketplacePage() {
                             <GPUCard
                                 key={gpu.id}
                                 gpu={gpu}
-                                onRent={() => handleRent(gpu.id)}
+                                onRent={() => handleRent(gpu)}
                                 isRenting={rentingId === gpu.id}
                                 isRecommended={gpu.id === recommendedGpuId}
                                 workload={selectedWorkload}
@@ -438,6 +453,51 @@ export default function MarketplacePage() {
                         </div>
                     </div>
                 </div>
+
+                {/* --- ESCROW SIGNATURE MODAL --- */}
+                {isSigning && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0809]/80 backdrop-blur-sm">
+                        <div className="bg-[#050505] border border-zinc-800 rounded-3xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            {/* Decorative blur */}
+                            <div className="absolute -top-20 -right-20 w-40 h-40 bg-[#69E300]/20 blur-[50px] rounded-full" />
+
+                            <div className="flex flex-col items-center text-center">
+                                <div className="h-20 w-20 bg-zinc-900 rounded-full flex items-center justify-center mb-6 relative">
+                                    {signProgress < 100 ? (
+                                        <Fingerprint size={32} className="text-[#69E300] animate-pulse" />
+                                    ) : (
+                                        <CheckCircle2 size={32} className="text-[#69E300]" />
+                                    )}
+                                    <svg className="absolute inset-0 w-full h-full -rotate-90">
+                                        <circle cx="40" cy="40" r="38" className="stroke-zinc-800" strokeWidth="4" fill="none" />
+                                        <circle cx="40" cy="40" r="38" className="stroke-[#69E300] transition-all duration-100 ease-out" strokeWidth="4" fill="none" strokeDasharray="238" strokeDashoffset={238 - (238 * signProgress) / 100} />
+                                    </svg>
+                                </div>
+
+                                <h3 className="text-2xl font-bold mb-2">
+                                    {signProgress < 100 ? "Sign Transaction" : "Deposit Locked!"}
+                                </h3>
+
+                                <p className="text-zinc-400 text-sm mb-8 leading-relaxed">
+                                    {signProgress < 100
+                                        ? `Please approve the 5.00 ALGO escrow deposit in your Pera Wallet to start the ${signingModel} job.`
+                                        : "Cryptographic escrow verified. Booting remote container..."}
+                                </p>
+
+                                <div className="w-full bg-zinc-900/50 rounded-2xl p-4 border border-zinc-800 text-left space-y-3">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-zinc-500 flex items-center gap-2"><Wallet size={14} /> Network</span>
+                                        <span className="font-mono text-zinc-300">Algorand Testnet</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-zinc-500 flex items-center gap-2"><Lock size={14} /> Smart Escrow</span>
+                                        <span className="font-mono text-[#69E300]">5.00 ALGO</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </main>
 
             <Footer />

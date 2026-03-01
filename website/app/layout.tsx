@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ConditionalFooter } from "@/components/conditional-footer"
 import { Navigation } from "@/components/navigation"
+import { WalletProvider } from "@/components/wallet-provider"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
@@ -38,10 +39,12 @@ export default function RootLayout({
       <body
         className={`${_geist.variable} ${_geistMono.variable} ${_spaceGrotesk.variable} font-sans antialiased selection:bg-primary/30 bg-[#0a0809] text-white`}
       >
-        <Navigation />
-        {children}
-        <ConditionalFooter />
-        <Analytics />
+        <WalletProvider>
+          <Navigation />
+          {children}
+          <ConditionalFooter />
+          <Analytics />
+        </WalletProvider>
       </body>
     </html>
   )

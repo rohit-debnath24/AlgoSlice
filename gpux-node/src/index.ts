@@ -235,12 +235,24 @@ async function executeWorkload(socket: Socket, jobId: string, image: string, scr
             }
         });
 
-        // 4. Mock Training Metrics for Dashboard UI
+        // 4. Mock Training Metrics, Vouchers, and DiLoCo Simulation
         let epoch = 0;
         const metricInterval = setInterval(() => {
             if (epoch < 50) {
                 const loss = Math.max(0.1, 2.5 * Math.exp(-epoch / 10)).toFixed(4);
                 const accuracy = Math.min(0.99, 0.4 + (0.6 * (1 - Math.exp(-epoch / 15)))).toFixed(4);
+
+                // --- DiLoCo SIMULATION ---
+                // We emit a log proving we are doing 500 local steps without hitting the network
+                const dilocoLog = `[DiLoCo] Performing 500 local steps (Epoch ${epoch})...`;
+                socket.emit('provider_log', { job_id: jobId, log: dilocoLog });
+                console.log(`[Job ${jobId}] ${dilocoLog}`);
+
+                // Then we sync
+                const syncLog = `[DiLoCo] Syncing Gradients... Bandwidth Saved: 90% | Loss: ${loss}`;
+                socket.emit('provider_log', { job_id: jobId, log: syncLog });
+                console.log(`[Job ${jobId}] ${syncLog}`);
+                // -------------------------
 
                 socket.emit('metric_update', {
                     job_id: jobId,
@@ -248,6 +260,17 @@ async function executeWorkload(socket: Socket, jobId: string, image: string, scr
                     loss: parseFloat(loss),
                     accuracy: parseFloat(accuracy)
                 });
+
+                // --- STATE CHANNEL OFF-CHAIN VOUCHER DEMO ---
+                // For the hackathon demo, we generate a voucher every "tick" (representing 1 minute of compute)
+                const mockSignature = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+                socket.emit('voucher_sync', {
+                    job_id: jobId,
+                    minute: epoch + 1,
+                    amount: parseFloat(((epoch + 1) * 0.05).toFixed(2)), // 0.05 ALGO per minute
+                    signature: mockSignature
+                });
+
                 epoch++;
             }
         }, 3000);

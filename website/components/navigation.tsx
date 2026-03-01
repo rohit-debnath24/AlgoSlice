@@ -4,13 +4,17 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Menu } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Menu, LogOut, Wallet } from "lucide-react"
+import { useWallet } from "@txnlab/use-wallet-react"
 import { UserProfileButton } from "@/components/user-profile-button"
 
 export function Navigation() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+
+  const { activeAddress, wallets } = useWallet()
 
   useEffect(() => {
     checkAuth()
@@ -20,7 +24,8 @@ export function Navigation() {
     try {
       const response = await fetch('/api/auth/session')
       const data = await response.json()
-      setIsAuthenticated(data.authenticated)
+      // Merge Web2 auth and Web3 wallet status
+      setIsAuthenticated(data.authenticated || !!activeAddress)
       if (data.authenticated && data.user) {
         setUserId(data.user.userId)
       }
@@ -28,6 +33,28 @@ export function Navigation() {
       console.error('Error checking auth:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleConnectLute = async () => {
+    try {
+      const luteWallet = wallets?.find(w => w.id === "lute")
+      if (luteWallet) {
+        await luteWallet.connect()
+      } else {
+        console.error("Lute wallet provider not found in use-wallet configuration.")
+      }
+    } catch (e) {
+      console.error("Error connecting to Lute:", e)
+    }
+  }
+
+  const handleDisconnect = async () => {
+    try {
+      const active = wallets?.find(w => w.isActive)
+      if (active) await active.disconnect()
+    } catch (e) {
+      console.error("Error disconnecting:", e)
     }
   }
 
@@ -109,17 +136,28 @@ export function Navigation() {
         <div className="flex items-center gap-4">
           {!isLoading && (
             <>
-              {isAuthenticated ? (
+              {activeAddress ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="border-[#69E300]/30 text-[#69E300] bg-[#69E300]/5 px-3 py-1 font-mono text-xs">
+                    <Wallet className="w-3 h-3 mr-2 inline" />
+                    {activeAddress.slice(0, 5)}...{activeAddress.slice(-4)}
+                  </Badge>
+                  <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-red-400" onClick={handleDisconnect} title="Disconnect Wallet">
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : isAuthenticated ? (
                 <UserProfileButton />
               ) : (
-                <>
-                  <Button variant="ghost" size="sm" asChild className="hidden text-white/60 hover:text-white md:inline-flex">
-                    <Link href="/login">Login</Link>
-                  </Button>
-                  <Button variant="ghost" size="sm" asChild className="hidden text-white/60 hover:text-white md:inline-flex">
-                    <Link href="/sign-up">Register</Link>
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden md:flex bg-transparent border-zinc-700 hover:bg-zinc-800 text-white gap-2 font-mono whitespace-nowrap"
+                  onClick={handleConnectLute}
+                >
+                  <Image src="https://lute.app/favicon.ico" alt="Lute Logo" width={16} height={16} className="rounded-full" />
+                  Connect Lute
+                </Button>
               )}
             </>
           )}

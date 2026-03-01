@@ -228,6 +228,11 @@ io.on('connection', (socket) => {
         io.emit(`metrics_${data.job_id}`, data);
     });
 
+    // Provider node signals cryptographic voucher sync (State Channel)
+    socket.on('voucher_sync', (data) => {
+        io.emit(`voucher_${data.job_id}`, data);
+    });
+
     // Provider Node signals job complete
     socket.on('job_complete', async (data) => {
         console.log(`Job ${data.job_id} completed`);
@@ -264,6 +269,84 @@ io.on('connection', (socket) => {
         console.log('Client disconnected:', socket.id);
     });
 });
+
+// --- DECENTRALIZED SCHEDULER (Hybrid Swarm Fallback) ---
+const SCHEDULER_INTERVAL_MS = 15000; // Run every 15 seconds
+const HEARTBEAT_TIMEOUT_MS = 20000; // Consider node dead if no heartbeat in 20s
+
+setInterval(async () => {
+    try {
+        // 1. Find all running jobs that are part of a swarm cluster
+        const runningSwarmJobs = await prisma.job.findMany({
+            where: {
+                status: 'running',
+                cluster_id: { not: null }
+            },
+            include: { gpu: true }
+        });
+
+        for (const job of runningSwarmJobs) {
+            const timeSinceLastHeartbeat = Date.now() - new Date(job.gpu.last_heartbeat).getTime();
+
+            // 2. Detect Node Failure (Pipeline Parallelism Fallback Trigger)
+            if (timeSinceLastHeartbeat > HEARTBEAT_TIMEOUT_MS) {
+                console.log(`\n🚨 [SCHEDULER] Node Failure Detected! GPU: ${job.gpu.id.substring(0, 8)} missed heartbeat.`);
+                console.log(`🚨 [SCHEDULER] Triggering Pipeline Parallelism Fallback for Stage ${job.pipeline_stage}...`);
+
+                // Mark failed GPU as offline
+                await prisma.gPU.update({
+                    where: { id: job.gpu.id },
+                    data: { status: 'offline' }
+                });
+
+                // 3. Find a replacement GPU that is currently available and alive
+                const replacementGpu = await prisma.gPU.findFirst({
+                    where: {
+                        status: 'available',
+                        last_heartbeat: { gte: new Date(Date.now() - 15000) },
+                        vram_gb: { gte: job.gpu.vram_gb } // Ideally equal or better VRAM
+                    }
+                });
+
+                if (!replacementGpu) {
+                    console.error(`❌ [SCHEDULER] Fallback Failed: No available replacement GPU in the grid!`);
+                    // In a real system you'd probably pause the cluster or try again later.
+                    continue;
+                }
+
+                console.log(`✅ [SCHEDULER] Found Replacement Node: ${replacementGpu.id.substring(0, 8)}`);
+                console.log(`✅ [SCHEDULER] Reassigning using Algorand Box state fallback...`);
+
+                // 4. Update Job to the new GPU
+                await prisma.job.update({
+                    where: { id: job.id },
+                    data: {
+                        gpu_id: replacementGpu.id,
+                        owner_wallet: replacementGpu.owner_wallet
+                    }
+                });
+
+                // Mark new GPU as busy
+                await prisma.gPU.update({
+                    where: { id: replacementGpu.id },
+                    data: { status: 'busy' }
+                });
+
+                // 5. Emit Start Event to the new node to resume the layer
+                io.emit(`start_job_${replacementGpu.owner_wallet}`, {
+                    job_id: job.id,
+                    cluster_id: job.cluster_id,
+                    stage: job.pipeline_stage,
+                    total_stages: -1, // Tells node it's a fallback resume
+                    image: "pytorch/pytorch:latest",
+                    script: `print('Running Stage ${job.pipeline_stage} (Resumed via Algorand Box state fallback) in Swarm ${job.cluster_id}')`
+                });
+            }
+        }
+    } catch (e: any) {
+        console.error(`[SCHEDULER ERROR] ${e.message}`);
+    }
+}, SCHEDULER_INTERVAL_MS);
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
