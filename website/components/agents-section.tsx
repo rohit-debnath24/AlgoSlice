@@ -81,15 +81,14 @@ export function AgentsSection() {
             {/* Section Header */}
             <div className="text-center space-y-4 max-w-2xl mx-auto">
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#69E300]/20 bg-[#69E300]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-[#69E300]">
-                    <Bot className="h-4 w-4" />
-                    Agent System
+                    <Activity className="h-4 w-4" />
+                    Smart Allocation
                 </div>
                 <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
-                    Autonomous <span className="text-[#69E300]">AI Agents</span>
+                    Intent-Aware <span className="text-[#69E300]">Scheduler</span>
                 </h2>
-                <p className="text-white/40 text-lg">
-                    Specialized agents collaborate to review pull requests, validate runtime behavior,
-                    audit security, and generate documentation — fully automated and observable.
+                <p className="text-zinc-300 text-lg">
+                    Our proprietary matching algorithm analyzes workload requirements, VRAM constraints, and regional availability to instantly provision the most cost-effective GPU resources on the network.
                 </p>
             </div>
 

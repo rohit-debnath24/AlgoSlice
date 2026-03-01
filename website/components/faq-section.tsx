@@ -64,7 +64,7 @@ export function FAQSection() {
                     <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
                         Frequently <span className="text-[#69E300]">Asked Questions</span>
                     </h2>
-                    <p className="text-lg text-white/60 max-w-2xl mx-auto">
+                    <p className="text-lg text-zinc-300 max-w-2xl mx-auto">
                         Everything you need to know about securing your DevOps pipeline with active intelligence.
                     </p>
                 </motion.div>
@@ -85,7 +85,7 @@ export function FAQSection() {
                                 <AccordionTrigger className="text-lg font-medium text-white hover:text-[#69E300] hover:no-underline py-6">
                                     {faq.question}
                                 </AccordionTrigger>
-                                <AccordionContent className="text-white/70 text-base pb-6 leading-relaxed">
+                                <AccordionContent className="text-zinc-200 text-base pb-6 leading-relaxed">
                                     {faq.answer}
                                 </AccordionContent>
                             </AccordionItem>

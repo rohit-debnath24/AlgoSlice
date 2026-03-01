@@ -54,7 +54,7 @@ export function FeaturesSection() {
           Core Features
         </div>
         <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">Built for <span className="text-[#69E300]">Global Scale</span></h2>
-        <p className="text-white/40 text-lg">
+        <p className="text-zinc-300 text-lg">
           The most secure decentralized compute platform for high-growth AI development teams.
         </p>
       </div>
@@ -69,7 +69,7 @@ export function FeaturesSection() {
               <feature.icon className="h-6 w-6" />
             </div>
             <h3 className="mb-3 text-xl font-bold text-white">{feature.title}</h3>
-            <p className="text-sm leading-relaxed text-white/40">{feature.description}</p>
+            <p className="text-sm leading-relaxed text-zinc-300">{feature.description}</p>
           </div>
         ))}
       </div>

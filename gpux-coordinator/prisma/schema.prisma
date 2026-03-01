@@ -56,7 +56,13 @@ model Job {
   cluster_id       String?
   pipeline_stage   Int?     // 0-indexed order in the pipeline
   start_time       DateTime @default(now())
+  actual_end_time  DateTime?
   max_end_time     DateTime
+  
+  dataset_size_gb  Float?
+  estimated_cost   Float?
+  actual_cost      Float?
+  
   escrow_tx_hash   String   @unique
   status           String   @default("running") // running, completed, failed, refunded
 

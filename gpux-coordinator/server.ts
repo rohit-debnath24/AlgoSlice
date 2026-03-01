@@ -86,7 +86,7 @@ app.post('/heartbeat', async (req, res) => {
 
 // Renter: Initiate a Rental Job
 app.post('/rent', async (req, res) => {
-    const { renter_wallet, gpu_id, minutes, escrow_tx_hash } = req.body;
+    const { renter_wallet, gpu_id, minutes, dataset_size_gb, estimated_cost, escrow_tx_hash } = req.body;
 
     // 1. Verify Escrow Txn on-chain
     if (APP_ID > 0 && escrow_tx_hash) {
@@ -112,6 +112,8 @@ app.post('/rent', async (req, res) => {
             renter_wallet,
             owner_wallet: gpu.owner_wallet,
             gpu_id,
+            dataset_size_gb,
+            estimated_cost,
             escrow_tx_hash,
             max_end_time: new Date(Date.now() + minutes * 60000)
         }
@@ -237,10 +239,95 @@ io.on('connection', (socket) => {
     socket.on('job_complete', async (data) => {
         console.log(`Job ${data.job_id} completed`);
 
-        // Update DB
+        // 1. Fetch Job and GPU data for Settlement Math
+        const activeJob = await prisma.job.findUnique({
+            where: { id: data.job_id },
+            include: { gpu: true }
+        });
+
+        if (!activeJob) {
+            console.error(`Error: Job ${data.job_id} not found for settlement.`);
+            return;
+        }
+
+        const endTime = new Date();
+        const durationMinutes = (endTime.getTime() - new Date(activeJob.start_time).getTime()) / 60000;
+        const actualCost = durationMinutes * activeJob.gpu.price_per_minute;
+
+        // Safety guard: if job finished insanely fast, refund everything except a minimum 1-minute delta
+        const finalActualCost = Math.max(actualCost, activeJob.gpu.price_per_minute);
+
+        let refundAmount = 0;
+        if (activeJob.estimated_cost && activeJob.estimated_cost > finalActualCost) {
+            refundAmount = activeJob.estimated_cost - finalActualCost;
+        }
+
+        // 2. Execute Actual Escrow Transaction on Algorand Testnet
+        console.log(`\n💰 --- ESCROW SETTLEMENT PROTOCOL --- 💰`);
+        console.log(`Job ID: ${activeJob.id}`);
+        console.log(`Total Runtime: ${durationMinutes.toFixed(2)} minutes`);
+        console.log(`Locked Escrow: ${activeJob.estimated_cost?.toFixed(4)} ALGO`);
+        console.log(`Actual Cost: ${finalActualCost.toFixed(4)} ALGO`);
+
+        try {
+            // Setup Algod client
+            const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '');
+            const params = await algodClient.getTransactionParams().do();
+
+            // Coordinator Master Escrow Wallet (Generated for this session)
+            const coordinatorSK = new Uint8Array([245, 137, 180, 48, 167, 9, 165, 72, 162, 196, 216, 250, 233, 43, 34, 192, 231, 145, 84, 135, 200, 111, 166, 34, 23, 139, 147, 229, 196, 53, 225, 236, 71, 47, 90, 72, 235, 173, 128, 119, 14, 72, 6, 105, 107, 51, 156, 46, 48, 96, 176, 102, 177, 195, 217, 153, 163, 236, 237, 125, 79, 189]);
+            const coordinatorAccount = algosdk.mnemonicFromSeed(coordinatorSK.slice(0, 32)); // Derive account
+            const coordinatorObj = algosdk.mnemonicToSecretKey(coordinatorAccount);
+
+            // a. Pay the GPU Provider for actual computation
+            const providerAmountMicroAlgos = Math.floor(finalActualCost * 1_000_000);
+
+            if (providerAmountMicroAlgos > 0 && algosdk.isValidAddress(activeJob.owner_wallet)) {
+                console.log(`Dispatching ${finalActualCost.toFixed(4)} ALGO -> Provider (${activeJob.owner_wallet})`);
+                const payoutTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+                    sender: coordinatorObj.addr,
+                    receiver: activeJob.owner_wallet,
+                    amount: providerAmountMicroAlgos,
+                    suggestedParams: params,
+                    note: new Uint8Array(Buffer.from(`JOB_${activeJob.id}_PAYOUT`))
+                });
+
+                const signedPayout = payoutTxn.signTxn(coordinatorObj.sk);
+                const payoutResponse = await algodClient.sendRawTransaction(signedPayout).do();
+                console.log("Payout broadcasted! TxID:", payoutResponse.txid);
+            }
+
+            // b. Refund the Renter the remaining escrow balance
+            if (refundAmount > 0 && activeJob.renter_wallet && algosdk.isValidAddress(activeJob.renter_wallet)) {
+                const refundMicroAlgos = Math.floor(refundAmount * 1_000_000);
+                console.log(`Refund Triggered! Sending ${refundAmount.toFixed(4)} ALGO -> Dataset Client (${activeJob.renter_wallet})`);
+
+                const refundTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+                    sender: coordinatorObj.addr,
+                    receiver: activeJob.renter_wallet,
+                    amount: refundMicroAlgos,
+                    suggestedParams: params,
+                    note: new Uint8Array(Buffer.from(`JOB_${activeJob.id}_REFUND`))
+                });
+
+                const signedRefund = refundTxn.signTxn(coordinatorObj.sk);
+                const refundResponse = await algodClient.sendRawTransaction(signedRefund).do();
+                console.log("Refund broadcasted! TxID:", refundResponse.txid);
+            }
+        } catch (chainError) {
+            console.error("CRITICAL: Blockchain Settlement Failed!", chainError);
+        }
+
+        console.log(`💰 ---------------------------------- 💰\n`);
+
+        // 3. Update DB
         const job = await prisma.job.update({
             where: { id: data.job_id },
-            data: { status: 'completed' },
+            data: {
+                status: 'completed',
+                actual_end_time: endTime,
+                actual_cost: finalActualCost
+            },
             include: { cluster: true }
         });
 

@@ -80,25 +80,25 @@ export function Navigation() {
         <div className="hidden md:flex items-center justify-center gap-8">
           <Link
             href="/"
-            className="text-sm font-medium text-white/60 hover:text-[#69E300] transition-colors"
+            className="text-sm font-medium text-zinc-200 hover:text-[#69E300] transition-colors"
           >
             Home
           </Link>
           <Link
             href="/marketplace"
-            className="text-sm font-medium text-white/60 hover:text-[#69E300] transition-colors"
+            className="text-sm font-medium text-zinc-200 hover:text-[#69E300] transition-colors"
           >
             Marketplace
           </Link>
           <Link
             href="/list-gpu"
-            className="text-sm font-medium text-white/60 hover:text-[#69E300] transition-colors"
+            className="text-sm font-medium text-zinc-200 hover:text-[#69E300] transition-colors"
           >
             List GPU
           </Link>
           <a
             href="/#how-it-works"
-            className="text-sm font-medium text-white/60 hover:text-[#69E300] transition-colors"
+            className="text-sm font-medium text-zinc-200 hover:text-[#69E300] transition-colors truncate max-w-[120px]"
             onClick={(e) => {
               e.preventDefault()
               const element = document.getElementById('how-it-works')

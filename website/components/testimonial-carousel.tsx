@@ -247,7 +247,7 @@ export default function TestimonialCarousel() {
         <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-white">
           Trusted by <span className="text-[#69E300]">Industry Leaders</span>
         </h2>
-        <p className="text-lg text-white/60 max-w-2xl mx-auto text-pretty">
+        <p className="text-lg text-zinc-300 max-w-2xl mx-auto text-pretty">
           See how teams are accelerating discovery with our autonomous AI agents.
         </p>
 
@@ -354,7 +354,7 @@ function TestimonialCard({ testimonial }: { testimonial: any }) {
           </div>
         </div>
 
-        <p className="text-white/60 text-base leading-relaxed text-pretty flex-grow mb-6 group-hover:text-white/90 transition-colors italic">
+        <p className="text-zinc-300 text-base leading-relaxed text-pretty flex-grow mb-6 group-hover:text-white/90 transition-colors italic">
           "{testimonial.feedback}"
         </p>
 
@@ -368,7 +368,7 @@ function TestimonialCard({ testimonial }: { testimonial: any }) {
               />
             ))}
           </div>
-          <span className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full bg-white/5 text-white/40 border border-white/10 group-hover:border-[#69E300]/30 group-hover:text-[#69E300] transition-all">
+          <span className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full bg-white/5 text-zinc-400 border border-white/10 group-hover:border-[#69E300]/30 group-hover:text-[#69E300] transition-all">
             {testimonial.type}
           </span>
         </div>

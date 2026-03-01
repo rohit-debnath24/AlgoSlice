@@ -11,6 +11,8 @@ import {
     MessageSquare, Brain, Image as ImageIcon, Binary, Sparkles, Terminal, Info,
     Database, Link2, HardDrive, Lock, Fingerprint, Wallet
 } from "lucide-react"
+import { useWallet } from "@txnlab/use-wallet-react"
+import algosdk from "algosdk"
 
 interface GPU {
     id: string
@@ -97,9 +99,12 @@ export default function MarketplacePage() {
     const [gpus, setGpus] = useState<GPU[]>([])
     const [loading, setLoading] = useState(true)
     const [rentingId, setRentingId] = useState<string | null>(null)
+    const [datasetSizeGb, setDatasetSizeGb] = useState<number>(5)
     const [isSigning, setIsSigning] = useState(false)
     const [signProgress, setSignProgress] = useState(0)
     const [signingModel, setSigningModel] = useState('')
+
+    const { activeAddress, signTransactions } = useWallet()
 
     const DATA_SOURCE_OPTIONS = [
         { id: 'huggingface' as const, label: 'HuggingFace Dataset', icon: Database, placeholder: 'HuggingFaceH4/ultrachat_200k', hint: 'Auto-downloaded inside the container via datasets library.' },
@@ -183,22 +188,71 @@ export default function MarketplacePage() {
         setSigningModel(gpu.gpu_model);
         setSignProgress(0);
 
-        // Simulate User Signature Delay (Pera Wallet interaction)
-        for (let i = 0; i <= 100; i += 5) {
-            await new Promise(r => setTimeout(r, 100));
-            setSignProgress(i);
-        }
-        await new Promise(r => setTimeout(r, 600)); // Pause at 100%
+        // Calculate Cost Estimations
+        const estimated_minutes = datasetSizeGb * 5;
+        const estimated_cost = estimated_minutes * gpu.price_per_minute;
+
+        let escrow_tx_hash = "mock_tx_" + Math.random().toString(36).substring(7);
 
         try {
+            if (activeAddress) {
+                setSignProgress(25);
+                // 1. Setup Algod Client (Testnet)
+                console.log("Initializing Algod client...");
+                const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '');
+                const params = await algodClient.getTransactionParams().do();
+                console.log("Got tx params:", params);
+
+                setSignProgress(50);
+
+                // 2. Construct Escrow Payment Txn
+                // Convert ALGO estimate to MicroAlgos
+                const amountMicroAlgos = Math.floor(estimated_cost * 1_000_000);
+                const escrowAddress = "DKO2GMIFTLXWN4SZYXZ4N7OKBEZU37CIXP3TZG7E3HVWOGP5IXEK4732AQ";
+
+                console.log(`Building Txn: ${amountMicroAlgos} uALGO from ${activeAddress} to ${escrowAddress}`);
+                const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+                    sender: activeAddress,
+                    receiver: escrowAddress,
+                    amount: amountMicroAlgos,
+                    suggestedParams: params,
+                    note: new Uint8Array(Buffer.from(`Escrow for Dataset ${datasetSizeGb}GB Model ${gpu.gpu_model}`))
+                });
+
+                const encodedTxn = txn.toByte();
+
+                setSignProgress(75);
+
+                // 3. Prompt user's Lute Wallet to sign
+                console.log("Invoking Lute signTransactions...");
+                const signedTxns = await signTransactions([encodedTxn]);
+                console.log("Lute response:", signedTxns);
+
+                if (!signedTxns || signedTxns.length === 0 || !signedTxns[0]) {
+                    throw new Error("Signature failed or rejected by user.");
+                }
+
+                // 4. Send Signed Txn to Network
+                console.log("Broadcasting to Algorand...");
+                const sendResponse = await algodClient.sendRawTransaction(signedTxns[0] as Uint8Array).do();
+                escrow_tx_hash = sendResponse.txid;
+                console.log("Escrow Secured. TxID:", sendResponse.txid);
+
+                setSignProgress(100);
+            } else {
+                throw new Error("Please connect your Lute Wallet before deploying a node. We need your wallet to secure the dataset Escrow payout!");
+            }
+
             const res = await fetch("http://localhost:3001/rent", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    renter_wallet: "HACKATHON_DEMO_RENTER",
+                    renter_wallet: activeAddress || "HACKATHON_DEMO_RENTER",
                     gpu_id: gpu.id,
-                    minutes: 60,
-                    escrow_tx_hash: "mock_tx_" + Math.random().toString(36).substring(7),
+                    minutes: estimated_minutes,
+                    dataset_size_gb: datasetSizeGb,
+                    estimated_cost: estimated_cost,
+                    escrow_tx_hash: escrow_tx_hash,
                     image: selectedWorkload?.image || "pytorch/pytorch:latest",
                     dataset_source: dataSourceType !== 'none' && dataSourceValue ? dataSourceValue : null,
                     script: buildScript()
@@ -208,8 +262,9 @@ export default function MarketplacePage() {
             if (data.success) {
                 window.location.href = `/jobs/${data.job.id}`;
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Rental failed:", error);
+            alert("Payment Signature Failed: " + error.message);
             setIsSigning(false);
         } finally {
             setRentingId(null);
@@ -221,13 +276,13 @@ export default function MarketplacePage() {
             <div className="min-h-screen bg-[#0a0809] text-white">
                 <Navigation />
                 <main className="pt-40 pb-20 container mx-auto px-6 max-w-[1200px] text-center">
-                    <Badge className="bg-[#69E300]/10 text-[#69E300] border-[#69E300]/20 mb-6 px-4 py-1">
+                    <Badge className="bg-[#69E300]/10 text-[#69E300] border-[#69E300]/20 mb-8 px-5 py-2 text-sm font-semibold tracking-wide">
                         Intent-Aware Scheduler
                     </Badge>
-                    <h1 className="text-5xl md:text-7xl font-bold mb-6 font-display">
+                    <h1 className="text-6xl md:text-8xl font-black mb-8 font-display tracking-tight leading-[1.1]">
                         What is your <span className="text-[#69E300]">Mission?</span>
                     </h1>
-                    <p className="text-zinc-500 text-xl mb-16 max-w-2xl mx-auto">
+                    <p className="text-zinc-400 text-2xl mb-20 max-w-3xl mx-auto font-light leading-relaxed">
                         Tell us what you want to achieve, and we'll automatically filter the grid for the most cost-effective hardware.
                     </p>
 
@@ -288,14 +343,14 @@ export default function MarketplacePage() {
                         <span className="text-zinc-400 uppercase">Configure Data</span>
                     </div>
 
-                    <Badge className="bg-[#69E300]/10 text-[#69E300] border-[#69E300]/20 mb-6 px-4 py-1">
+                    <Badge className="bg-[#69E300]/10 text-[#69E300] border-[#69E300]/20 mb-8 px-5 py-2 text-sm font-semibold tracking-wide">
                         Step 2 of 3 — Data Source
                     </Badge>
-                    <h1 className="text-4xl md:text-5xl font-bold mb-4 font-display">
+                    <h1 className="text-5xl md:text-6xl font-black mb-6 font-display tracking-tight">
                         Where is your <span className="text-[#69E300]">training data?</span>
                     </h1>
-                    <p className="text-zinc-500 text-lg mb-12">
-                        Point gpux to your dataset. It will be injected as <code className="text-zinc-300 font-mono text-sm bg-zinc-900 px-2 py-0.5 rounded">DATASET_SOURCE</code> into the container at runtime.
+                    <p className="text-zinc-400 text-xl mb-16 leading-relaxed">
+                        Point gpux to your dataset. It will be injected as <code className="text-zinc-300 font-mono text-base bg-zinc-900 px-3 py-1 rounded-md">DATASET_SOURCE</code> into the container at runtime.
                     </p>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
@@ -328,6 +383,36 @@ export default function MarketplacePage() {
                         </div>
                     </div>
 
+                    <div className="bg-zinc-900/30 border border-zinc-800 rounded-3xl p-8 mb-6 mt-4">
+                        <label className="text-sm font-bold text-zinc-300 block mb-2 uppercase tracking-wide flex items-center gap-2">
+                            <HardDrive size={16} /> Dataset Size Profile (GB)
+                        </label>
+                        <p className="text-xs text-zinc-500 mb-6">
+                            This creates the cryptographic Escrow lock computation parameter. Nodes are compensated based on execution time, dynamically measured against your payload limit. Excess Escrow is refunded instantly.
+                        </p>
+
+                        <div className="flex items-center gap-6">
+                            <input
+                                type="range"
+                                min="1"
+                                max="100"
+                                value={datasetSizeGb}
+                                onChange={(e) => setDatasetSizeGb(Number(e.target.value))}
+                                className="w-full accent-[#69E300] bg-zinc-800 h-2 rounded-lg appearance-none cursor-pointer"
+                            />
+                            <div className="bg-black border border-zinc-700 rounded-lg px-4 py-2 min-w-[100px] text-center">
+                                <span className="font-mono text-xl font-bold text-[#69E300]">{datasetSizeGb}</span>
+                                <span className="text-xs text-zinc-500 ml-1">GB</span>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 flex justify-between text-[10px] text-zinc-500 font-mono uppercase tracking-widest">
+                            <span>1 GB (Micro)</span>
+                            <span>{datasetSizeGb * 5} MIN EST.</span>
+                            <span>100 GB (Massive)</span>
+                        </div>
+                    </div>
+
                     <div className="flex gap-4">
                         <Button
                             className="flex-1 h-14 rounded-2xl bg-[#69E300] text-black font-black text-lg hover:scale-[1.02] transition-all shadow-[0_10px_30px_rgba(105,227,0,0.2)] flex items-center justify-center gap-2"
@@ -357,7 +442,7 @@ export default function MarketplacePage() {
             <main className="pt-32 pb-20 container mx-auto px-6 max-w-[1400px]">
                 <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
                     <div>
-                        <div className="flex items-center gap-3 mb-4">
+                        <div className="flex items-center gap-3 mb-6">
                             <button
                                 onClick={() => setStep('profiler')}
                                 className="text-sm font-bold text-zinc-500 hover:text-[#69E300] transition-colors"
@@ -367,10 +452,10 @@ export default function MarketplacePage() {
                             <span className="text-zinc-800">/</span>
                             <span className="text-[#69E300] text-sm font-bold uppercase">{selectedWorkload?.name || 'CUSTOM VIEW'}</span>
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-bold font-display tracking-tight mb-4">
+                        <h1 className="text-5xl md:text-6xl font-black font-display tracking-tight mb-6">
                             Hardware <span className="text-[#69E300]">Decision Matrix</span>
                         </h1>
-                        <p className="text-zinc-400 max-w-xl text-lg">
+                        <p className="text-zinc-400 max-w-2xl text-xl leading-relaxed font-light">
                             {selectedWorkload
                                 ? `Showing GPUs matching the ${selectedWorkload.name} profile (min ${selectedWorkload.minVram}GB VRAM).`
                                 : "The peer-to-peer grid, indexed and verified for performance."}
@@ -417,6 +502,7 @@ export default function MarketplacePage() {
                             <GPUCard
                                 key={gpu.id}
                                 gpu={gpu}
+                                datasetSizeGb={datasetSizeGb}
                                 onRent={() => handleRent(gpu)}
                                 isRenting={rentingId === gpu.id}
                                 isRecommended={gpu.id === recommendedGpuId}
@@ -490,8 +576,14 @@ export default function MarketplacePage() {
                                         <span className="font-mono text-zinc-300">Algorand Testnet</span>
                                     </div>
                                     <div className="flex justify-between items-center text-sm">
-                                        <span className="text-zinc-500 flex items-center gap-2"><Lock size={14} /> Smart Escrow</span>
-                                        <span className="font-mono text-[#69E300]">5.00 ALGO</span>
+                                        <span className="text-zinc-500 flex items-center gap-2"><Lock size={14} /> Smart Escrow Lock</span>
+                                        <div className="text-right">
+                                            <div className="font-mono text-[#69E300] font-bold">{(datasetSizeGb * 5 * (gpus.find(g => g.id === rentingId)?.price_per_minute || 0)).toFixed(4)} ALGO</div>
+                                            <div className="text-[9px] text-zinc-500">{datasetSizeGb * 5} min est. duration</div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 text-[10px] text-zinc-500 italic border-t border-zinc-800/50 pt-2 pb-1">
+                                        * Unused compute time will be instantly refunded to your wallet when the node completes processing.
                                     </div>
                                 </div>
                             </div>
@@ -505,14 +597,18 @@ export default function MarketplacePage() {
     )
 }
 
-function GPUCard({ gpu, onRent, isRenting, isRecommended, workload, recommendationReason }: {
+function GPUCard({ gpu, datasetSizeGb, onRent, isRenting, isRecommended, workload, recommendationReason }: {
     gpu: GPU,
+    datasetSizeGb: number,
     onRent: () => void,
     isRenting: boolean,
     isRecommended: boolean,
     workload: Workload | null,
     recommendationReason: string
 }) {
+    const estimatedMinutes = datasetSizeGb * 5;
+    const estimatedCostAlgo = (estimatedMinutes * gpu.price_per_minute).toFixed(4);
+
     return (
         <div className={`group relative bg-zinc-900/30 border rounded-[2.5rem] p-8 transition-all hover:bg-zinc-900/50 overflow-hidden ${isRecommended ? 'border-[#69E300]/60 ring-1 ring-[#69E300]/20 shadow-[0_0_50px_rgba(105,227,0,0.1)]' : 'border-zinc-800 hover:border-[#69E300]/40'}`}>
 
@@ -535,8 +631,8 @@ function GPUCard({ gpu, onRent, isRenting, isRecommended, workload, recommendati
                 )}
             </div>
 
-            <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-2xl font-bold group-hover:text-[#69E300] transition-colors">{gpu.gpu_model}</h3>
+            <div className="flex items-center gap-2 mb-3">
+                <h3 className="text-3xl font-black tracking-tight group-hover:text-[#69E300] transition-colors">{gpu.gpu_model}</h3>
             </div>
 
             <div className="flex items-center gap-4 mb-8">
@@ -557,11 +653,11 @@ function GPUCard({ gpu, onRent, isRenting, isRecommended, workload, recommendati
                     </div>
                     <div className="text-2xl font-black">{gpu.vram_gb || 6}<span className="text-sm font-normal text-zinc-500 ml-1">GB</span></div>
                 </div>
-                <div className="bg-black/40 rounded-3xl p-5 border border-zinc-800/50">
-                    <div className="text-[10px] text-zinc-500 uppercase mb-2 font-black tracking-widest flex items-center gap-1.5">
-                        <Clock size={12} /> Rate
+                <div className="bg-[#69E300]/5 rounded-3xl p-5 border border-[#69E300]/20">
+                    <div className="text-[10px] text-[#69E300] uppercase mb-2 font-black tracking-widest flex items-center gap-1.5">
+                        <Lock size={12} /> Escrow Estimate
                     </div>
-                    <div className="text-2xl font-black">{gpu.price_per_minute}<span className="text-sm font-normal text-zinc-500 ml-1">¢/m</span></div>
+                    <div className="text-2xl font-black text-[#69E300]">{estimatedCostAlgo}<span className="text-[10px] font-normal text-zinc-400 ml-1 block mt-1">{estimatedMinutes}m computation</span></div>
                 </div>
             </div>
 

@@ -161,11 +161,14 @@ export default function JobDashboard() {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
                     <div>
-                        <Link href="/marketplace" className="text-zinc-500 hover:text-[#69E300] flex items-center gap-2 mb-4 transition-colors">
+                        <Link href="/marketplace" className="text-zinc-500 hover:text-[#69E300] flex items-center gap-2 mb-6 font-semibold transition-colors">
                             <ArrowLeft size={16} /> Back to Marketplace
                         </Link>
-                        <h1 className="text-4xl font-bold font-display tracking-tight flex items-center gap-4">
-                            Job Monitoring <span className="text-[#69E300] font-mono text-2xl opacity-50">#{id?.toString().slice(0, 8)}</span>
+                        <h1 className="text-5xl md:text-6xl font-black font-display tracking-tight flex items-center flex-wrap gap-4 leading-none">
+                            Job Monitoring
+                            <span className="text-[#69E300] bg-[#69E300]/10 border border-[#69E300]/20 px-4 py-1 rounded-full font-mono text-xl md:text-2xl mt-2 md:mt-0">
+                                #{id?.toString().slice(0, 8)}
+                            </span>
                         </h1>
                     </div>
                     <div className="flex gap-4">
@@ -254,7 +257,7 @@ export default function JobDashboard() {
                     {/* Right Column: Node Info */}
                     <div className="space-y-8">
                         <div className="bg-zinc-900/30 border border-zinc-800 rounded-3xl p-8">
-                            <h3 className="font-bold mb-6 text-zinc-400 uppercase tracking-widest text-xs">Node Resources</h3>
+                            <h3 className="font-black mb-8 text-zinc-400 uppercase tracking-widest text-sm">Node Resources</h3>
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-3 text-zinc-300">
@@ -288,7 +291,7 @@ export default function JobDashboard() {
                         {/* State Channel Panel for Vouchers */}
                         <div className="bg-zinc-900/30 border border-zinc-800 rounded-3xl p-8 relative overflow-hidden">
                             <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#69E300]/10 blur-[40px] rounded-full" />
-                            <h3 className="font-bold mb-6 text-zinc-400 uppercase tracking-widest text-xs flex items-center justify-between">
+                            <h3 className="font-black mb-6 text-zinc-400 uppercase tracking-widest text-sm flex items-center justify-between">
                                 State Channel
                                 <Badge className="bg-[#69E300]/10 text-[#69E300] border-[#69E300]/20 text-[10px]">Zero-Fee P2P</Badge>
                             </h3>

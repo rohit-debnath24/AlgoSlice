@@ -34,7 +34,7 @@ export function HowItWorks() {
           Workflow
         </div>
         <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">How <span className="text-[#69E300]">it Works</span></h2>
-        <p className="text-white/40 text-lg">
+        <p className="text-zinc-300 text-lg">
           A streamlined, decentralized workflow that connects developers to global GPU power with 100% security.
         </p>
       </div>
@@ -52,7 +52,7 @@ export function HowItWorks() {
               {step.icon}
             </div>
             <h3 className="text-lg font-bold text-white mb-2">{step.title}</h3>
-            <p className="text-sm text-white/40 leading-relaxed">{step.description}</p>
+            <p className="text-sm text-zinc-300 leading-relaxed">{step.description}</p>
           </div>
         ))}
       </div>

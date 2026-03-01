@@ -1,0 +1,1 @@
+const io = require('socket.io-client'); const socket = io('http://localhost:3001'); socket.on('connect', () => { console.log('Connected, sending complete signal...'); socket.emit('job_complete', { job_id: 'ee55a52f-4995-4372-922e-31dcb3cdab8b' }); setTimeout(() => process.exit(0), 1000); });

@@ -80,7 +80,7 @@ export function PricingSection() {
                     <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
                         Simple & <span className="text-[#69E300]">Transparent Plans</span>
                     </h2>
-                    <p className="text-lg text-white/60 max-w-2xl mx-auto">
+                    <p className="text-lg text-zinc-300 max-w-2xl mx-auto">
                         Choose the plan that fits your security needs — from startups exploring predictive defense to enterprises requiring full-scale threat orchestration.
                     </p>
                 </motion.div>
@@ -110,9 +110,9 @@ export function PricingSection() {
                                     <span className={`text-5xl font-bold text-white ${plan.highlighted ? "text-[#69E300]" : ""}`}>
                                         {plan.price}
                                     </span>
-                                    {plan.frequency && <span className="text-lg text-white/60">{plan.frequency}</span>}
+                                    {plan.frequency && <span className="text-lg text-zinc-300">{plan.frequency}</span>}
                                 </div>
-                                <p className="text-white/60 text-sm leading-relaxed">{plan.description}</p>
+                                <p className="text-zinc-300 text-sm leading-relaxed">{plan.description}</p>
                             </div>
 
                             <ul className="space-y-3 mb-8 flex-grow">
@@ -122,7 +122,7 @@ export function PricingSection() {
                                             className={`h-5 w-5 mr-3 flex-shrink-0 mt-0.5 ${plan.highlighted ? "text-[#69E300]" : "text-[#69E300]/70"
                                                 }`}
                                         />
-                                        <span className="text-white/80">{feature}</span>
+                                        <span className="text-zinc-200">{feature}</span>
                                     </li>
                                 ))}
                             </ul>

@@ -13,12 +13,12 @@ export function HeroSection() {
       <div className="container mx-auto px-6 sm:px-8 lg:px-12 xl:px-16 max-w-[1400px]">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
           <div className="space-y-8 max-w-2xl">
-            <div className="space-y-4">
-              <h1 className="text-5xl font-display font-bold tracking-tight text-white md:text-6xl lg:text-7xl">
-                GPU
-                <span className="text-[#69E300]"> Power</span>
+            <div className="space-y-6">
+              <h1 className="text-6xl font-black font-display tracking-tighter leading-[1.1] text-white md:text-7xl lg:text-[7rem]">
+                Welcome to
+                <span className="text-[#69E300] block mt-2">AlgoSlice.</span>
               </h1>
-              <p className="text-lg text-white/60 leading-relaxed max-w-xl">
+              <p className="text-xl md:text-2xl text-zinc-200 font-light leading-relaxed max-w-xl">
                 The decentralized marketplace for compute. Rent high-performance GPUs with
                 Algorand-secured escrow and automated Docker sandboxing.
               </p>
