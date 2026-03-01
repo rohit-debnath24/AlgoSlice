@@ -1,0 +1,14 @@
+{
+  "name": "gpux-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix website",
+    "dev:coordinator": "npm run dev --prefix gpux-coordinator",
+    "dev:node": "npx ts-node gpux-node/src/index.ts start -w HACKATHON_DEMO_WALLET",
+    "dev:all": "npx concurrently \"npm run dev\" \"npm run dev:coordinator\" \"npm run dev:node\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

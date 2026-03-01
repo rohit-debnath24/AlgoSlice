@@ -1,0 +1,191 @@
+#pragma version 11
+#pragma typetrack false
+
+// algopy.arc4.ARC4Contract.approval_program() -> uint64:
+main:
+    intcblock 1 0 32 8
+    bytecblock "coordinator"
+    txn ApplicationID
+    bnz main_after_if_else@2
+    // contract.py:11
+    // self.coordinator = Global.creator_address
+    bytec_0 // "coordinator"
+    global CreatorAddress
+    app_global_put
+
+main_after_if_else@2:
+    // contract.py:3
+    // class EscrowContract(ARC4Contract):
+    txn NumAppArgs
+    bz main___algopy_default_create@12
+    txn OnCompletion
+    !
+    assert
+    txn ApplicationID
+    assert
+    pushbytess 0x4e7c864c 0x1f62c2ee 0x74550518 // method "deposit(string,pay)void", method "release(address,uint64)void", method "refund(address,uint64)void"
+    txna ApplicationArgs 0
+    match deposit release refund
+    err
+
+main___algopy_default_create@12:
+    txn OnCompletion
+    !
+    txn ApplicationID
+    !
+    &&
+    return
+
+
+// contract.EscrowContract.deposit[routing]() -> void:
+deposit:
+    // contract.py:13
+    // @arc4.abimethod
+    txna ApplicationArgs 1
+    dup
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    pushint 2
+    +
+    swap
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    txn GroupIndex
+    intc_0 // 1
+    -
+    dup
+    gtxns TypeEnum
+    intc_0 // pay
+    ==
+    assert // transaction type is pay
+    // contract.py:18
+    // assert payment.receiver == Global.current_application_address, "Payment must be to Escrow"
+    dup
+    gtxns Receiver
+    global CurrentApplicationAddress
+    ==
+    assert // Payment must be to Escrow
+    // contract.py:19
+    // assert payment.amount > 0, "Amount must be greater than 0"
+    gtxns Amount
+    assert // Amount must be greater than 0
+    // contract.py:13
+    // @arc4.abimethod
+    intc_0 // 1
+    return
+
+
+// contract.EscrowContract.release[routing]() -> void:
+release:
+    // contract.py:21
+    // @arc4.abimethod
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2 // 32
+    ==
+    assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
+    txna ApplicationArgs 2
+    dup
+    len
+    intc_3 // 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    btoi
+    // contract.py:26
+    // assert Txn.sender == self.coordinator, "Only the Coordinator can release funds"
+    txn Sender
+    intc_1 // 0
+    bytec_0 // "coordinator"
+    app_global_get_ex
+    assert // check self.coordinator exists
+    ==
+    assert // Only the Coordinator can release funds
+    // contract.py:28-33
+    // # Send payment to the provider
+    // itxn.Payment(
+    //     receiver=provider,
+    //     amount=amount,
+    //     fee=0,
+    // ).submit()
+    itxn_begin
+    itxn_field Amount
+    itxn_field Receiver
+    // contract.py:28-29
+    // # Send payment to the provider
+    // itxn.Payment(
+    intc_0 // pay
+    itxn_field TypeEnum
+    // contract.py:32
+    // fee=0,
+    intc_1 // 0
+    itxn_field Fee
+    // contract.py:28-33
+    // # Send payment to the provider
+    // itxn.Payment(
+    //     receiver=provider,
+    //     amount=amount,
+    //     fee=0,
+    // ).submit()
+    itxn_submit
+    // contract.py:21
+    // @arc4.abimethod
+    intc_0 // 1
+    return
+
+
+// contract.EscrowContract.refund[routing]() -> void:
+refund:
+    // contract.py:35
+    // @arc4.abimethod
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2 // 32
+    ==
+    assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
+    txna ApplicationArgs 2
+    dup
+    len
+    intc_3 // 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    btoi
+    // contract.py:40
+    // assert Txn.sender == self.coordinator, "Only the Coordinator can process refunds"
+    txn Sender
+    intc_1 // 0
+    bytec_0 // "coordinator"
+    app_global_get_ex
+    assert // check self.coordinator exists
+    ==
+    assert // Only the Coordinator can process refunds
+    // contract.py:42-46
+    // itxn.Payment(
+    //     receiver=renter,
+    //     amount=amount,
+    //     fee=0,
+    // ).submit()
+    itxn_begin
+    itxn_field Amount
+    itxn_field Receiver
+    // contract.py:42
+    // itxn.Payment(
+    intc_0 // pay
+    itxn_field TypeEnum
+    // contract.py:45
+    // fee=0,
+    intc_1 // 0
+    itxn_field Fee
+    // contract.py:42-46
+    // itxn.Payment(
+    //     receiver=renter,
+    //     amount=amount,
+    //     fee=0,
+    // ).submit()
+    itxn_submit
+    // contract.py:35
+    // @arc4.abimethod
+    intc_0 // 1
+    return

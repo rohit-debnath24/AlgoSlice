@@ -1,0 +1,71 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model GPU {
+  id               String   @id @default(uuid())
+  owner_wallet     String   @unique
+  gpu_model        String
+  vram_gb          Int      @default(6)
+  price_per_minute Float
+  status           String   @default("available") // available, busy, offline
+  resource_limit_percent Int @default(100)
+  
+  // Advanced Telemetry [NEW]
+  architecture     String?
+  cuda_cores       Int?
+  tensor_cores     Int?
+  driver_version   String?
+  pcie_gen         String?
+  pcie_lanes       String?
+  utilization_gpu  Int      @default(0)
+  temperature_gpu    Int      @default(0)
+  uptime_score       Float    @default(100)
+  uptime_percent     Float    @default(100)
+  is_verified        Boolean  @default(false)
+  bench_score        Float    @default(0)
+  network_speed      Float    @default(0) // Mbps
+  ping_latency       Int      @default(0) // ms
+  disk_free_gb       Int      @default(0)
+  reputation_score   Int      @default(0)
+  
+  last_heartbeat   DateTime @default(now())
+
+  jobs             Job[]
+}
+
+model SwarmCluster {
+  id               String   @id @default(uuid())
+  total_vram_gb    Int
+  status           String   @default("active") // active, dismantled
+  created_at       DateTime @default(now())
+
+  jobs             Job[]
+}
+
+model Job {
+  id               String   @id @default(uuid())
+  renter_wallet    String
+  owner_wallet     String   // Recipient node for this specific stage
+  gpu_id           String
+  cluster_id       String?
+  pipeline_stage   Int?     // 0-indexed order in the pipeline
+  start_time       DateTime @default(now())
+  actual_end_time  DateTime?
+  max_end_time     DateTime
+  
+  dataset_size_gb  Float?
+  estimated_cost   Float?
+  actual_cost      Float?
+  
+  escrow_tx_hash   String   @unique
+  status           String   @default("running") // running, completed, failed, refunded
+
+  gpu              GPU      @relation(fields: [gpu_id], references: [id])
+  cluster          SwarmCluster? @relation(fields: [cluster_id], references: [id])
+}

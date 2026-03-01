@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "Node",
+        "skipLibCheck": true,
+        "composite": true
+    },
+    "exclude": [
+        "website",
+        "gpux-coordinator",
+        "gpux-node",
+        "gpux-client"
+    ]
+}
