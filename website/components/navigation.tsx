@@ -71,9 +71,9 @@ export function Navigation() {
         {/* Logo Section */}
         <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#69E300]/10 border border-[#69E300]/30 transition-all group-hover:bg-[#69E300]/20 group-hover:shadow-[0_0_15px_rgba(105,227,0,0.3)] overflow-hidden">
-            <div className="text-[#69E300] font-bold text-xs">GPUX</div>
+            <div className="text-[#69E300] font-bold text-xs">AS</div>
           </div>
-          <span className="text-xl font-display font-bold tracking-tight text-white uppercase">gpux</span>
+          <span className="text-xl font-display font-bold tracking-tight text-white uppercase">AlgoSlice</span>
         </Link>
 
         {/* Center Links Section */}

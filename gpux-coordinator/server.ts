@@ -4,6 +4,9 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import algosdk from 'algosdk';
+import { GoogleGenAI, Type } from '@google/genai';
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const ALGOD_TOKEN = "";
 const ALGOD_SERVER = "https://testnet-api.algonode.cloud";
@@ -31,6 +34,60 @@ app.get('/list', async (req, res) => {
         }
     });
     res.json(gpus);
+});
+
+// Optimizer: Recommend best GPU via Gemini
+app.post('/recommend-gpu', async (req, res) => {
+    const { gpus, workload } = req.body;
+
+    if (!gpus || gpus.length === 0 || !workload) {
+        return res.status(400).json({ error: "GPUs and workload data required" });
+    }
+
+    try {
+        const prompt = `You are an expert AI Cloud Resource Matchmaker. 
+        Your job is to analyze the available GPUs and recommend the BEST single GPU for the user's workload.
+        
+        Workload Requirements:
+        Name: ${workload.name}
+        Min VRAM: ${workload.minVram}GB
+        Cores Priority: ${workload.cudaHeavy ? 'CUDA Cores (Compute Heavy)' : 'Tensor Cores (AI/DL Heavy)'}
+        
+        Available GPUs:
+        ${JSON.stringify(gpus.map((g: any) => ({
+            id: g.id,
+            model: g.gpu_model,
+            vram: g.vram_gb,
+            price: g.price_per_minute,
+            cuda_cores: g.cuda_cores,
+            tensor_cores: g.tensor_cores
+        })), null, 2)}
+        
+        Select the SINGLE best GPU ID from the list that meets the minimum VRAM requirement, prioritizes the needed core type, and offers the best value (price to performance ratio). Evaluate carefully.
+        Provide a 1-sentence explanation of WHY you chose it.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        recommended_gpu_id: { type: Type.STRING },
+                        reason: { type: Type.STRING }
+                    },
+                    required: ['recommended_gpu_id', 'reason']
+                }
+            }
+        });
+
+        const result = JSON.parse(response.text || "{}");
+        res.json(result);
+    } catch (error: any) {
+        console.error("Gemini Error:", error);
+        res.status(500).json({ error: "Failed to generate recommendation" });
+    }
 });
 
 // Provider: Node Heartbeat Registration
@@ -119,11 +176,12 @@ app.post('/rent', async (req, res) => {
         }
     });
 
-    // 4. Notify Provider Node via Socket with safety constraints
+    // 4. Notify Provider Node via Socket with the actual execution payload
     io.emit(`start_job_${job.owner_wallet}`, {
         job_id: job.id,
-        image: "pytorch/pytorch:latest",
+        image: req.body.image || "pytorch/pytorch:latest",
         script: req.body.script || "print('Hello distributed world!')",
+        dataset_source: req.body.dataset_source,
         resource_limit_percent: gpu.resource_limit_percent || 100
     });
 
@@ -215,19 +273,52 @@ app.post('/stop', async (req, res) => {
     res.json({ success: true, message: "Job terminated and Escrow Refund triggered." });
 });
 
+// --- LOG & METRIC REPLAY BUFFERS ---
+// Keeps the last 200 lines per job so late-connecting dashboards catch up instantly
+const jobLogBuffer: Map<string, string[]> = new Map();
+const jobMetricBuffer: Map<string, object[]> = new Map();
+
+function pushLog(job_id: string, log: string) {
+    if (!jobLogBuffer.has(job_id)) jobLogBuffer.set(job_id, []);
+    const buf = jobLogBuffer.get(job_id)!;
+    buf.push(log);
+    if (buf.length > 200) buf.shift();
+}
+
+function pushMetric(job_id: string, metric: object) {
+    if (!jobMetricBuffer.has(job_id)) jobMetricBuffer.set(job_id, []);
+    jobMetricBuffer.get(job_id)!.push(metric);
+}
+
 // --- SOCKETS ---
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
+    // Frontend dashboard subscribes to a job to get replayed historical logs
+    socket.on('subscribe_job', (job_id: string) => {
+        const logs = jobLogBuffer.get(job_id) || [];
+        const metrics = jobMetricBuffer.get(job_id) || [];
+        console.log(`Replaying ${logs.length} logs + ${metrics.length} metrics to ${socket.id} for job ${job_id}`);
+        logs.forEach(log => socket.emit(`job_logs_${job_id}`, log));
+        metrics.forEach(m => socket.emit(`metrics_${job_id}`, m));
+    });
+
     // Provider Node sends real-time stdout logs here
     socket.on('provider_log', (data) => {
+        pushLog(data.job_id, data.log);
         // Re-broadcast to the unique job room so the Renter can see it
         io.emit(`job_logs_${data.job_id}`, data.log);
     });
 
     // Provider Node signals metric update (Phase 12)
     socket.on('metric_update', (data) => {
+        pushMetric(data.job_id, data);
         io.emit(`metrics_${data.job_id}`, data);
+    });
+
+    // Provider Node sends final binary file (PDF)
+    socket.on('job_result_file', (data) => {
+        io.emit(`job_result_file_${data.job_id}`, data);
     });
 
     // Provider node signals cryptographic voucher sync (State Channel)
@@ -279,40 +370,56 @@ io.on('connection', (socket) => {
             const coordinatorAccount = algosdk.mnemonicFromSeed(coordinatorSK.slice(0, 32)); // Derive account
             const coordinatorObj = algosdk.mnemonicToSecretKey(coordinatorAccount);
 
+            const atc = new algosdk.AtomicTransactionComposer();
+            const signer = algosdk.makeBasicAccountTransactionSigner(coordinatorObj);
+
             // a. Pay the GPU Provider for actual computation
             const providerAmountMicroAlgos = Math.floor(finalActualCost * 1_000_000);
+            const demoProviderWallet = "OXSFACAMCJQLRHFQIYGG4X7SBGRWUBEAFRWK62B64ICEQ7XBZSU2BXKHE4"; // Explicit provider wallet
 
-            if (providerAmountMicroAlgos > 0 && algosdk.isValidAddress(activeJob.owner_wallet)) {
-                console.log(`Dispatching ${finalActualCost.toFixed(4)} ALGO -> Provider (${activeJob.owner_wallet})`);
-                const payoutTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-                    sender: coordinatorObj.addr,
-                    receiver: activeJob.owner_wallet,
-                    amount: providerAmountMicroAlgos,
-                    suggestedParams: params,
-                    note: new Uint8Array(Buffer.from(`JOB_${activeJob.id}_PAYOUT`))
+            if (providerAmountMicroAlgos > 0 && algosdk.isValidAddress(demoProviderWallet)) {
+                console.log(`Dispatching ${finalActualCost.toFixed(4)} ALGO -> Provider (${demoProviderWallet}) via Escrow`);
+
+                const releaseMethod = new algosdk.ABIMethod({
+                    name: "release",
+                    args: [{ type: "address", name: "provider" }, { type: "uint64", name: "amount" }],
+                    returns: { type: "void" }
                 });
 
-                const signedPayout = payoutTxn.signTxn(coordinatorObj.sk);
-                const payoutResponse = await algodClient.sendRawTransaction(signedPayout).do();
-                console.log("Payout broadcasted! TxID:", payoutResponse.txid);
+                atc.addMethodCall({
+                    appID: APP_ID,
+                    method: releaseMethod,
+                    methodArgs: [demoProviderWallet, providerAmountMicroAlgos],
+                    sender: coordinatorObj.addr,
+                    suggestedParams: params,
+                    signer: signer
+                });
             }
 
             // b. Refund the Renter the remaining escrow balance
             if (refundAmount > 0 && activeJob.renter_wallet && algosdk.isValidAddress(activeJob.renter_wallet)) {
                 const refundMicroAlgos = Math.floor(refundAmount * 1_000_000);
-                console.log(`Refund Triggered! Sending ${refundAmount.toFixed(4)} ALGO -> Dataset Client (${activeJob.renter_wallet})`);
+                console.log(`Refund Triggered! Sending ${refundAmount.toFixed(4)} ALGO -> Dataset Client (${activeJob.renter_wallet}) via Escrow`);
 
-                const refundTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-                    sender: coordinatorObj.addr,
-                    receiver: activeJob.renter_wallet,
-                    amount: refundMicroAlgos,
-                    suggestedParams: params,
-                    note: new Uint8Array(Buffer.from(`JOB_${activeJob.id}_REFUND`))
+                const refundMethod = new algosdk.ABIMethod({
+                    name: "refund",
+                    args: [{ type: "address", name: "renter" }, { type: "uint64", name: "amount" }],
+                    returns: { type: "void" }
                 });
 
-                const signedRefund = refundTxn.signTxn(coordinatorObj.sk);
-                const refundResponse = await algodClient.sendRawTransaction(signedRefund).do();
-                console.log("Refund broadcasted! TxID:", refundResponse.txid);
+                atc.addMethodCall({
+                    appID: APP_ID,
+                    method: refundMethod,
+                    methodArgs: [activeJob.renter_wallet, refundMicroAlgos],
+                    sender: coordinatorObj.addr,
+                    suggestedParams: params,
+                    signer: signer
+                });
+            }
+
+            if (atc.count() > 0) {
+                const result = await atc.execute(algodClient, 4);
+                console.log("Escrow Smart Contract Actions Broadcasted! TxIDs:", result.txIDs);
             }
         } catch (chainError) {
             console.error("CRITICAL: Blockchain Settlement Failed!", chainError);

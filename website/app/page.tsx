@@ -22,22 +22,22 @@ export default function Home() {
             <FeaturesSection />
 
             {/* Agents Section */}
-            <AgentsSection />
+            <TestimonialCarousel />
 
             {/* Pricing Section */}
             <PricingSection />
-
+            <div className="mt-8">
+              <CTASection />
+            </div>
             {/* FAQ Section */}
             <FAQSection />
 
             {/* Testimonial Carousel Section */}
-            <TestimonialCarousel />
+            {/* <AgentsSection /> */}
           </div>
 
           {/* CTA Section */}
-          <div className="mt-8">
-            <CTASection />
-          </div>
+
         </section>
       </main>
     </div >

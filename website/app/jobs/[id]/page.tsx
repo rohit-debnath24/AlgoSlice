@@ -43,6 +43,7 @@ export default function JobDashboard() {
     const [vouchers, setVouchers] = useState<Voucher[]>([])
     const [status, setStatus] = useState<string>("Initializing...")
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+    const [trainedDataPdf, setTrainedDataPdf] = useState<string | null>(null)
     const socketRef = useRef<Socket | null>(null)
     const logsContainerRef = useRef<HTMLDivElement>(null)
 
@@ -112,6 +113,16 @@ export default function JobDashboard() {
         }
     }
 
+    const handleDownloadTrainedData = () => {
+        if (!trainedDataPdf) return
+        const link = document.createElement("a")
+        link.href = `data:application/pdf;base64,${trainedDataPdf}`
+        link.download = `trained_data_extract_${id}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+    }
+
     useEffect(() => {
         // Connect to Coordinator
         const socket = io("http://localhost:3001")
@@ -120,6 +131,8 @@ export default function JobDashboard() {
         socket.on("connect", () => {
             console.log("Connected to dashboard stream")
             setStatus("Connected to Node")
+            // Request replay of any logs+metrics already buffered for this job
+            socket.emit("subscribe_job", id)
         })
 
         // Listen for logs
@@ -131,6 +144,11 @@ export default function JobDashboard() {
         // Listen for metrics
         socket.on(`metrics_${id}`, (data: MetricPoint) => {
             setMetrics(prev => [...prev, data])
+        })
+
+        // Listen for actual generated trained data files (PDF)
+        socket.on(`job_result_file_${id}`, (data: { filename: string, data: string }) => {
+            setTrainedDataPdf(data.data)
         })
 
         // Listen for off-chain vouchers
@@ -350,7 +368,16 @@ export default function JobDashboard() {
                                     ) : (
                                         <Download className="w-4 h-4" />
                                     )}
-                                    {status !== "Job Completed" ? "Download Interstitial PDF" : "Download Final PDF Report"}
+                                    {status !== "Job Completed" ? "Download Interstitial Report" : "Download Final Logs"}
+                                </Button>
+
+                                <Button
+                                    className="w-full mt-2 bg-[#69E300]/20 text-[#69E300] hover:bg-[#69E300]/30 font-bold border border-[#69E300]/50 flex items-center gap-2 transition-all"
+                                    onClick={handleDownloadTrainedData}
+                                    disabled={!trainedDataPdf}
+                                >
+                                    <Download className="w-4 h-4" />
+                                    {trainedDataPdf ? "Download Trained Data (PDF)" : "AWAITING DATA EXTRACT..."}
                                 </Button>
                             </div>
                         </div>

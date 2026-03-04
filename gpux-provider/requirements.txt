@@ -1,0 +1,5 @@
+docker==7.0.0
+python-socketio[client]==5.11.2
+requests==2.31.0
+pynvml==11.5.0
+python-dotenv==1.0.1
